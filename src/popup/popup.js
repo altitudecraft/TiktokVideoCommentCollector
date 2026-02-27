@@ -263,7 +263,21 @@
     dom.btnSync.textContent = '同步中...';
     showMessage('');
     try {
-      const result = await sendMessage({ type: 'sync_to_db' });
+      let result = await sendMessage({ type: 'sync_to_db' });
+
+      // 自定义 API 地址需要用户授权 host 权限
+      if (result && result.error === 'permission_needed') {
+        const granted = await chrome.permissions.request({ origins: [result.origin] });
+        if (granted) {
+          result = await sendMessage({ type: 'sync_to_db' });
+        } else {
+          showMessage('需要访问权限才能同步到自定义 API 地址', 'error');
+          dom.btnSync.textContent = '同步到数据库';
+          dom.btnSync.disabled = false;
+          return;
+        }
+      }
+
       if (result && result.ok) {
         showMessage('已写入 ' + result.imported + ' 条评论到数据库（含更新）', 'success');
         await refreshSyncInfo();

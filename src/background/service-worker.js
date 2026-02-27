@@ -378,6 +378,14 @@ async function handleSyncToDb() {
 
   try {
     const config = await getSyncConfig();
+
+    // 检查自定义 API 地址是否有 host 权限（需在 popup 端通过 chrome.permissions.request 授权）
+    const apiOrigin = new URL(config.apiUrl).origin + '/*';
+    const hasPermission = await chrome.permissions.contains({ origins: [apiOrigin] });
+    if (!hasPermission) {
+      return { ok: false, error: 'permission_needed', origin: apiOrigin };
+    }
+
     const response = await fetch(config.apiUrl, {
       method: 'POST',
       headers: {
