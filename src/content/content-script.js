@@ -10,6 +10,8 @@
   const SCROLL_INTERVAL_MAX = 1200;
   const NO_DATA_MAX = 3;
   const MAX_CONTAINER_RETRIES = 10;
+  const PANEL_WAIT_TIMEOUT = 3000;
+  const PANEL_POLL_INTERVAL = 200;
 
   let scrolling = false;
   let noDataCount = 0;
@@ -55,6 +57,88 @@
       }
     });
   });
+
+  // ─── 评论面板检测与自动打开 ───
+
+  function isCommentPanelOpen() {
+    // 检查评论面板是否已打开
+    if (document.querySelector('[class*="DivCommentMain"]')) return true;
+    if (document.querySelector('[data-e2e="comment-list"]')) return true;
+    if (document.querySelector('[class*="CommentList"]')) return true;
+    return false;
+  }
+
+  function findCommentButton() {
+    // 策略1: data-e2e="comment-icon" 的最近按钮祖先
+    const commentIcon = document.querySelector('[data-e2e="comment-icon"]');
+    if (commentIcon) {
+      const btn = commentIcon.closest('button') || commentIcon.parentElement?.closest('button');
+      if (btn) return btn;
+    }
+
+    // 策略2: aria-label 包含 "comment"
+    const ariaBtn = document.querySelector('button[aria-label*="comment" i]');
+    if (ariaBtn) return ariaBtn;
+
+    // 策略3: ButtonActionItem 类中包含评论 SVG path 的按钮
+    const actionBtns = document.querySelectorAll('[class*="ButtonActionItem"]');
+    for (const btn of actionBtns) {
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        const path = svg.querySelector('path');
+        if (path && path.getAttribute('d') && path.getAttribute('d').includes('21.5c0-10.22')) {
+          return btn;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function waitForPanel(timeout) {
+    return new Promise(function (resolve) {
+      if (isCommentPanelOpen()) {
+        resolve(true);
+        return;
+      }
+      const start = Date.now();
+      const timer = setInterval(function () {
+        if (isCommentPanelOpen()) {
+          clearInterval(timer);
+          resolve(true);
+        } else if (Date.now() - start >= timeout) {
+          clearInterval(timer);
+          resolve(false);
+        }
+      }, PANEL_POLL_INTERVAL);
+    });
+  }
+
+  async function ensureCommentPanelOpen() {
+    if (isCommentPanelOpen()) {
+      console.log(LOG, 'Comment panel already open');
+      return { ok: true };
+    }
+
+    console.log(LOG, 'Comment panel not open, searching for button...');
+    const btn = findCommentButton();
+    if (!btn) {
+      console.warn(LOG, 'Comment button not found');
+      return { ok: false, error: 'comment_button_not_found' };
+    }
+
+    console.log(LOG, 'Clicking comment button...');
+    btn.click();
+
+    const opened = await waitForPanel(PANEL_WAIT_TIMEOUT);
+    if (opened) {
+      console.log(LOG, 'Comment panel opened successfully');
+      return { ok: true, autoOpened: true };
+    }
+
+    console.warn(LOG, 'Comment panel did not open after click');
+    return { ok: false, error: 'panel_not_opened' };
+  }
 
   // ─── 自动滚动 ───
   function isScrollable(el) {
@@ -159,8 +243,17 @@
     console.log(LOG, 'Message received:', message.type);
 
     if (message.type === 'begin_scroll') {
-      startScrolling();
-      sendResponse({ ok: true });
+      ensureCommentPanelOpen().then(function (result) {
+        if (result.ok) {
+          startScrolling();
+          sendResponse({ ok: true, autoOpened: result.autoOpened || false });
+        } else {
+          sendResponse({ ok: false, error: result.error });
+        }
+      });
+      return true; // 异步响应
+    } else if (message.type === 'check_comment_panel') {
+      sendResponse({ panelOpen: isCommentPanelOpen() });
     } else if (message.type === 'stop_scroll') {
       stopScrolling();
       sendResponse({ ok: true });

@@ -216,13 +216,31 @@ async function handleStartCollection(sender) {
   await saveState(state);
   await saveComments({});
 
-  // 通知内容脚本开始滚动
+  // 通知内容脚本开始滚动（先自动打开评论面板）
   if (tabs[0]) {
-    chrome.tabs.sendMessage(tabs[0].id, { type: 'begin_scroll' }, function () {
-      if (chrome.runtime.lastError) {
-        console.warn(LOG, 'Send to content script failed:', chrome.runtime.lastError.message);
+    try {
+      const scrollResult = await new Promise(function (resolve) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: 'begin_scroll' }, function (response) {
+          if (chrome.runtime.lastError) {
+            resolve({ ok: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(response || { ok: true });
+          }
+        });
+      });
+
+      if (!scrollResult.ok) {
+        // 评论面板打开失败，回滚状态
+        state.status = 'idle';
+        await saveState(state);
+        console.warn(LOG, 'Collection failed to start:', scrollResult.error);
+        return { ok: false, error: scrollResult.error, state };
       }
-    });
+    } catch (e) {
+      state.status = 'idle';
+      await saveState(state);
+      return { ok: false, error: e.message, state };
+    }
   }
 
   console.log(LOG, 'Collection started');

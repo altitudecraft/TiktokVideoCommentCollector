@@ -159,9 +159,18 @@
     dom.btnStart.disabled = true;
     showMessage('');
     try {
-      await sendMessage({ type: 'start_collection' });
-      collectionStartTime = Date.now();
-      await refreshState();
+      const result = await sendMessage({ type: 'start_collection' });
+      if (result && !result.ok) {
+        // 评论面板打开失败
+        const errorMessages = {
+          comment_button_not_found: '未找到评论按钮，请先点击视频下方的评论图标打开评论区',
+          panel_not_opened: '评论区未能自动打开，请手动点击视频下方的评论图标',
+        };
+        showMessage(errorMessages[result.error] || '启动失败: ' + result.error, 'error');
+      } else {
+        collectionStartTime = Date.now();
+        await refreshState();
+      }
     } catch (e) {
       showMessage('启动失败: ' + e.message, 'error');
     }
