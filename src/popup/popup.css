@@ -187,11 +187,22 @@ body {
 .tce-popup__actions {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .tce-popup__actions .tce-popup__button {
   flex: 1;
+}
+
+/* ─── Sync Button ─── */
+.tce-popup__button--sync {
+  background: #1a73e8;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.tce-popup__button--sync:hover:not(:disabled) {
+  background: #1565c0;
 }
 
 /* ─── Options ─── */

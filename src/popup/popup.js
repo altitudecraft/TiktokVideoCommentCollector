@@ -19,6 +19,7 @@
     btnStop: document.getElementById('btnStop'),
     btnExport: document.getElementById('btnExport'),
     btnCopy: document.getElementById('btnCopy'),
+    btnSync: document.getElementById('btnSync'),
     chkReplies: document.getElementById('chkReplies'),
     message: document.getElementById('message'),
     btnHelp: document.getElementById('btnHelp'),
@@ -119,6 +120,7 @@
         dom.btnStop.style.display = 'block';
         dom.btnExport.disabled = true;
         dom.btnCopy.disabled = true;
+        dom.btnSync.disabled = true;
         dom.progressBar.classList.remove('tce-progress__bar--complete');
         break;
       }
@@ -130,6 +132,7 @@
         dom.btnStop.style.display = 'none';
         dom.btnExport.disabled = false;
         dom.btnCopy.disabled = false;
+        dom.btnSync.disabled = false;
         dom.progressBar.classList.add('tce-progress__bar--complete');
         break;
 
@@ -148,6 +151,7 @@
         if (collected > 0) {
           dom.btnExport.disabled = false;
           dom.btnCopy.disabled = false;
+          dom.btnSync.disabled = false;
         }
         break;
     }
@@ -236,6 +240,30 @@
       showMessage('复制失败: ' + e.message, 'error');
     }
     dom.btnCopy.disabled = false;
+  });
+
+  dom.btnSync.addEventListener('click', async function () {
+    dom.btnSync.disabled = true;
+    dom.btnSync.textContent = '同步中...';
+    showMessage('');
+    try {
+      const result = await sendMessage({ type: 'sync_to_db' });
+      if (result && result.ok) {
+        showMessage('已写入 ' + result.imported + ' 条评论到数据库（含更新）', 'success');
+      } else {
+        const errorMessages = {
+          no_comments: '没有可同步的评论',
+          no_video_id: '未检测到视频 ID',
+          api_error: '服务器返回错误 (HTTP ' + (result.status || '') + ')',
+          network_error: '无法连接到服务器，请检查网络',
+        };
+        showMessage(errorMessages[result.error] || '同步失败: ' + (result.message || result.error), 'error');
+      }
+    } catch (e) {
+      showMessage('同步失败: ' + e.message, 'error');
+    }
+    dom.btnSync.textContent = '同步到数据库';
+    dom.btnSync.disabled = false;
   });
 
   // ─── 工具函数 ───

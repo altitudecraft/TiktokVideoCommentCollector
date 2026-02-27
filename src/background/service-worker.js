@@ -10,6 +10,11 @@ const STORAGE_KEY_COMMENTS = 'tce_comments';
 const API_COMMENT_LIST = '/api/comment/list/';
 const API_COMMENT_REPLY = '/api/comment/list/reply/';
 
+// ─── 同步到数据库配置 ───
+// 注意: 仅限内部使用。扩展代码中的 Key 不可保密，服务端应通过环境变量设置强密钥。
+const SYNC_API_URL = 'http://185.132.54.28:3011/api/comments/import';
+const SYNC_API_KEY = 'scraper_secret_key_2026';
+
 // ─── 状态管理 ───
 
 function getDefaultState() {
@@ -191,6 +196,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     'export_csv': function () { return handleExportData('csv'); },
     'copy_all': function () { return handleExportData('text'); },
     'collection_complete': function () { return handleCollectionComplete(); },
+    'sync_to_db': function () { return handleSyncToDb(); },
   };
 
   const handler = handlers[type];
@@ -312,6 +318,66 @@ async function handleExportData(format) {
   }
 
   return { comments: sorted, format };
+}
+
+// ─── 同步到数据库 ───
+
+async function handleSyncToDb() {
+  const state = await loadState();
+  const comments = await loadComments();
+  const all = Object.values(comments);
+
+  if (all.length === 0) {
+    return { ok: false, error: 'no_comments' };
+  }
+
+  const videoId = state.videoId;
+  if (!videoId) {
+    return { ok: false, error: 'no_video_id' };
+  }
+
+  // 映射插件字段到数据库列
+  const mapped = all.map(function (c) {
+    return {
+      comment_id: String(c.cid),
+      parent_comment_id: c.parentCid || null,
+      text: c.text || '',
+      nickname: c.nickname || '',
+      unique_id: c.username || '',
+      user_avatar: '',
+      digg_count: c.diggCount || 0,
+      reply_count: c.replyCount || 0,
+      comment_language: '',
+      is_author_pinned: 0,
+      comment_time: c.createTime
+        ? new Date(c.createTime * 1000).toISOString().slice(0, 19).replace('T', ' ')
+        : null,
+    };
+  });
+
+  try {
+    const response = await fetch(SYNC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': SYNC_API_KEY,
+      },
+      body: JSON.stringify({ video_id: videoId, comments: mapped }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(LOG, 'Sync API error:', response.status, text);
+      return { ok: false, error: 'api_error', status: response.status };
+    }
+
+    const result = await response.json();
+    console.log(LOG, 'Synced to DB:', result.imported, 'comments');
+    return { ok: result.success, imported: result.imported, total: result.total };
+  } catch (e) {
+    console.error(LOG, 'Sync failed:', e.message);
+    return { ok: false, error: 'network_error', message: e.message };
+  }
 }
 
 // ─── Service Worker 重启恢复 ───

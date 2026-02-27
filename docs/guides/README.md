@@ -8,7 +8,7 @@
 |------|------|------|
 | [CSV 导出](./CSV_EXPORT_GUIDE.md) | `src/utils/csv-exporter.js` | CSV 生成、注入防护、编码处理 |
 | [内容脚本](./CONTENT_SCRIPT_GUIDE.md) | `src/content/` | 拦截器注入、API 监听、自动滚动 |
-| [Service Worker](./SERVICE_WORKER_GUIDE.md) | `src/background/service-worker.js` | 消息路由、存储管理、竞态防护 |
+| [Service Worker](./SERVICE_WORKER_GUIDE.md) | `src/background/service-worker.js` | 消息路由、存储管理、竞态防护、数据库同步 |
 
 ## 文档约定
 

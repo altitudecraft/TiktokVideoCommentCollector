@@ -1,10 +1,13 @@
 {
   "manifest_version": 3,
   "name": "TikTok Comment Exporter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Export all comments from TikTok video pages to CSV or clipboard.",
   "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": ["*://*.tiktok.com/*"],
+  "host_permissions": [
+    "*://*.tiktok.com/*",
+    "http://185.132.54.28:3011/*"
+  ],
   "background": {
     "service_worker": "src/background/service-worker.js"
   },

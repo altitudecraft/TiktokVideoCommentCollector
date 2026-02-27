@@ -5,13 +5,14 @@
 ## 架构
 
 ```
-chrome.runtime.onMessage → 消息路由 switch
+chrome.runtime.onMessage → 消息路由 handler map
   ├── api_data_received → handleApiData()（带队列串行化）
   ├── start_collection → handleStartCollection()
   ├── stop_collection → handleStopCollection()
-  ├── get_state → handleGetState()
+  ├── get_state → loadState()
   ├── export_csv / copy_all → handleExportData()
-  └── collection_complete → handleCollectionComplete()
+  ├── collection_complete → handleCollectionComplete()
+  └── sync_to_db → handleSyncToDb()
 ```
 
 ## 存储设计
@@ -30,6 +31,17 @@ chrome.runtime.onMessage → 消息路由 switch
 
 ### Service Worker 生命周期
 MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中断状态。
+
+### 数据库同步
+`handleSyncToDb` 将采集的评论映射到数据库列格式，通过 HTTP POST 发送到 `tiktok-comment-scraper` 服务的 `/api/comments/import` 端点。
+
+字段映射：cid→comment_id, username→unique_id, diggCount→digg_count, replyCount→reply_count, createTime→comment_time（unix→datetime）, parentCid→parent_comment_id。
+
+配置常量：
+- `SYNC_API_URL`: 目标 API 地址（默认 `http://185.132.54.28:3011`）
+- `SYNC_API_KEY`: API 认证密钥
+
+需要在 `manifest.json` 的 `host_permissions` 中添加对应的 API 服务器地址。
 
 ## 已修复问题
 
