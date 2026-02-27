@@ -218,7 +218,14 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     'api_data_received': function () { return handleApiData(payload.url, payload.body); },
     'start_collection': function () { return handleStartCollection(sender); },
     'stop_collection': function () { return handleStopCollection(sender); },
-    'get_state': function () { return loadState(); },
+    'get_state': function () {
+      return loadState().then(function (state) {
+        return chrome.storage.session.get(STORAGE_KEY_SYNC_PROGRESS).then(function (r) {
+          state.syncProgress = r[STORAGE_KEY_SYNC_PROGRESS] || null;
+          return state;
+        });
+      });
+    },
     'export_csv': function () { return handleExportData('csv'); },
     'copy_all': function () { return handleExportData('text'); },
     'collection_complete': function () { return handleCollectionComplete(); },
@@ -365,6 +372,26 @@ async function handleExportData(format) {
 
 // ─── 同步到数据库 ───
 
+const SYNC_BATCH_SIZE = 200;
+
+function mapCommentToDb(c) {
+  return {
+    comment_id: String(c.cid),
+    parent_comment_id: c.parentCid || null,
+    text: c.text || '',
+    nickname: c.nickname || '',
+    unique_id: c.username || '',
+    user_avatar: '',
+    digg_count: c.diggCount || 0,
+    reply_count: c.replyCount || 0,
+    comment_language: '',
+    is_author_pinned: 0,
+    comment_time: c.createTime
+      ? new Date(c.createTime * 1000).toISOString().slice(0, 19).replace('T', ' ')
+      : null,
+  };
+}
+
 async function handleSyncToDb() {
   const state = await loadState();
   const comments = await loadComments();
@@ -379,61 +406,70 @@ async function handleSyncToDb() {
     return { ok: false, error: 'no_video_id' };
   }
 
-  // 映射插件字段到数据库列
-  const mapped = all.map(function (c) {
-    return {
-      comment_id: String(c.cid),
-      parent_comment_id: c.parentCid || null,
-      text: c.text || '',
-      nickname: c.nickname || '',
-      unique_id: c.username || '',
-      user_avatar: '',
-      digg_count: c.diggCount || 0,
-      reply_count: c.replyCount || 0,
-      comment_language: '',
-      is_author_pinned: 0,
-      comment_time: c.createTime
-        ? new Date(c.createTime * 1000).toISOString().slice(0, 19).replace('T', ' ')
-        : null,
-    };
-  });
+  const mapped = all.map(mapCommentToDb);
 
   try {
     const config = await getSyncConfig();
 
-    // 检查自定义 API 地址是否有 host 权限（需在 popup 端通过 chrome.permissions.request 授权）
+    // 检查自定义 API 地址是否有 host 权限
     const apiOrigin = new URL(config.apiUrl).origin + '/*';
     const hasPermission = await chrome.permissions.contains({ origins: [apiOrigin] });
     if (!hasPermission) {
       return { ok: false, error: 'permission_needed', origin: apiOrigin };
     }
 
-    const response = await fetch(config.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': config.apiKey,
-      },
-      body: JSON.stringify({ video_id: videoId, comments: mapped }),
-    });
+    // 分批发送，每批 SYNC_BATCH_SIZE 条
+    const totalBatches = Math.ceil(mapped.length / SYNC_BATCH_SIZE);
+    let totalImported = 0;
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(LOG, 'Sync API error:', response.status, text);
-      return { ok: false, error: 'api_error', status: response.status };
+    for (let i = 0; i < totalBatches; i++) {
+      const batch = mapped.slice(i * SYNC_BATCH_SIZE, (i + 1) * SYNC_BATCH_SIZE);
+
+      // 通知 Popup 同步进度（存入 session storage，Popup 轮询读取）
+      await saveSyncProgress({ batch: i + 1, totalBatches, sent: i * SYNC_BATCH_SIZE + batch.length, total: mapped.length });
+
+      const response = await fetch(config.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': config.apiKey,
+        },
+        body: JSON.stringify({ video_id: videoId, comments: batch }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error(LOG, 'Sync API error at batch', i + 1, ':', response.status, text);
+        await clearSyncProgress();
+        return { ok: false, error: 'api_error', status: response.status, batchFailed: i + 1 };
+      }
+
+      const result = await response.json();
+      totalImported += result.imported || 0;
+      console.log(LOG, 'Batch', i + 1, '/', totalBatches, ':', result.imported, 'imported');
     }
 
-    const result = await response.json();
-    console.log(LOG, 'Synced to DB:', result.imported, 'comments');
+    await clearSyncProgress();
+    await saveSyncHistory(videoId, totalImported);
+    console.log(LOG, 'Synced to DB:', totalImported, 'comments in', totalBatches, 'batch(es)');
 
-    // 记录同步历史
-    await saveSyncHistory(videoId, result.imported);
-
-    return { ok: result.success, imported: result.imported, total: result.total };
+    return { ok: true, imported: totalImported, total: mapped.length, batches: totalBatches };
   } catch (e) {
     console.error(LOG, 'Sync failed:', e.message);
+    await clearSyncProgress();
     return { ok: false, error: 'network_error', message: e.message };
   }
+}
+
+// 同步进度（Popup 通过 get_state 轮询读取）
+const STORAGE_KEY_SYNC_PROGRESS = 'tce_sync_progress';
+
+async function saveSyncProgress(progress) {
+  await chrome.storage.session.set({ [STORAGE_KEY_SYNC_PROGRESS]: progress });
+}
+
+async function clearSyncProgress() {
+  await chrome.storage.session.remove(STORAGE_KEY_SYNC_PROGRESS);
 }
 
 // ─── 同步历史 ───

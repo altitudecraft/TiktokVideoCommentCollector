@@ -169,6 +169,13 @@
         }
         break;
     }
+
+    // 同步进度显示（SW 分批同步时通过 session storage 传递进度）
+    if (state.syncProgress) {
+      var sp = state.syncProgress;
+      dom.btnSync.textContent = '同步中 ' + sp.batch + '/' + sp.totalBatches + ' 批...';
+      dom.btnSync.disabled = true;
+    }
   }
 
   // ─── 事件处理 ───

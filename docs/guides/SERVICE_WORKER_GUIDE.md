@@ -46,7 +46,7 @@ MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中�
 
 ### 数据库同步
 
-**流程**: `handleSyncToDb()` → 字段映射 → `fetch POST` → 记录历史
+**流程**: `handleSyncToDb()` → 字段映射 → 分批 `fetch POST`（每批 200 条） → 记录历史
 
 **字段映射**:
 | 插件字段 | DB 列 | 转换 |
@@ -93,3 +93,4 @@ MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中�
 | 2026-02-28 | `totalRepliesExpected` 含内联回复导致进度 < 100% | 从 `reply_comment_total` 减去 `c.reply_comment.length`；完成时 Popup 强制 100% |
 | 2026-02-28 | 错误处理返回对象缺少 `totalRepliesExpected` 字段 | 补全 `handleApiData` catch 返回的默认字段 |
 | 2026-02-28 | 扩展更新后 content script 失联，开始采集报"面板打开失败" | 添加 `onInstalled` 自动注入 + `handleStartCollection` 重试 + 防重入 |
+| 2026-02-28 | 同步 500+ 条评论时 HTTP 413（payload 超 Express 默认 100KB） | 服务端提升到 5MB + 客户端分批 200 条/批 + Popup 显示分批进度 |
