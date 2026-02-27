@@ -1,0 +1,313 @@
+/**
+ * TikTok Comment Exporter - Service Worker
+ * 管理评论数据的持久化存储、去重和消息路由。
+ * 所有状态存储在 chrome.storage.session，不依赖内存变量。
+ */
+
+const LOG = '[TCE]';
+const STORAGE_KEY_STATE = 'tce_state';
+const STORAGE_KEY_COMMENTS = 'tce_comments';
+const API_COMMENT_LIST = '/api/comment/list/';
+const API_COMMENT_REPLY = '/api/comment/list/reply/';
+
+// ─── 状态管理 ───
+
+function getDefaultState() {
+  return {
+    status: 'idle',        // idle | collecting | complete | error
+    videoId: null,
+    videoUrl: null,
+    totalComments: 0,
+    collectedCount: 0,
+    cursor: 0,
+    hasMore: true,
+    startedAt: null,
+  };
+}
+
+async function loadState() {
+  const result = await chrome.storage.session.get(STORAGE_KEY_STATE);
+  return result[STORAGE_KEY_STATE] || getDefaultState();
+}
+
+async function saveState(state) {
+  await chrome.storage.session.set({ [STORAGE_KEY_STATE]: state });
+}
+
+async function loadComments() {
+  const result = await chrome.storage.session.get(STORAGE_KEY_COMMENTS);
+  return result[STORAGE_KEY_COMMENTS] || {};
+}
+
+async function saveComments(comments) {
+  await chrome.storage.session.set({ [STORAGE_KEY_COMMENTS]: comments });
+}
+
+// ─── 评论数据解析（内联，避免 importScripts 复杂性） ───
+
+function parseComment(c, parentCid) {
+  return {
+    cid: c.cid,
+    username: c.user?.unique_id || '',
+    nickname: c.user?.nickname || '',
+    text: c.text || '',
+    diggCount: c.digg_count || 0,
+    replyCount: c.reply_comment_total || 0,
+    createTime: c.create_time || 0,
+    isReply: parentCid !== null || (c.reply_id && c.reply_id !== '0'),
+    replyTo: null,
+    parentCid: parentCid || (c.reply_id && c.reply_id !== '0' ? c.reply_id : null),
+    isAuthorDigged: !!c.is_author_digged,
+  };
+}
+
+function extractAwemeId(url) {
+  try {
+    const params = new URL(url, 'https://www.tiktok.com').searchParams;
+    return params.get('aweme_id') || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─── API 数据处理（带队列防竞态） ───
+
+let processingQueue = Promise.resolve();
+
+function handleApiData(url, body) {
+  // 串行化处理，避免并发读写 storage 导致数据丢失
+  processingQueue = processingQueue.then(function () {
+    return _handleApiData(url, body);
+  }).catch(function (e) {
+    console.error(LOG, 'handleApiData error:', e.message);
+    return { collectedCount: 0, totalComments: 0, newCount: 0 };
+  });
+  return processingQueue;
+}
+
+async function _handleApiData(url, body) {
+  const state = await loadState();
+  const comments = await loadComments();
+
+  const isReplyApi = url.includes(API_COMMENT_REPLY);
+  const rawComments = body.comments || body.reply_comments || [];
+  let newCount = 0;
+
+  // 提取视频 ID
+  const awemeId = extractAwemeId(url);
+  if (awemeId && !state.videoId) {
+    state.videoId = awemeId;
+  }
+
+  // 更新 total（仅从顶级评论 API）
+  if (!isReplyApi && body.total) {
+    state.totalComments = body.total;
+  }
+
+  // 解析并去重
+  const parentCid = isReplyApi ? extractParentCid(url) : null;
+
+  // 查找父评论的用户名（用于 replyTo）
+  const parentUser = parentCid && comments[parentCid]
+    ? comments[parentCid].username
+    : null;
+
+  for (const c of rawComments) {
+    const parsed = parseComment(c, parentCid);
+    // 填充 reply API 的 replyTo
+    if (isReplyApi && parentUser) {
+      parsed.replyTo = parentUser;
+    }
+    if (!comments[parsed.cid]) {
+      comments[parsed.cid] = parsed;
+      newCount++;
+    }
+
+    // 处理内联回复
+    if (Array.isArray(c.reply_comment)) {
+      for (const reply of c.reply_comment) {
+        const parsedReply = parseComment(reply, c.cid);
+        parsedReply.isReply = true;
+        parsedReply.replyTo = c.user?.unique_id || null;
+        if (!comments[parsedReply.cid]) {
+          comments[parsedReply.cid] = parsedReply;
+          newCount++;
+        }
+      }
+    }
+  }
+
+  // 更新分页状态（仅从顶级评论 API）
+  if (!isReplyApi) {
+    state.cursor = body.cursor || state.cursor;
+    state.hasMore = body.has_more === 1;
+  }
+
+  state.collectedCount = Object.keys(comments).length;
+
+  // 检查是否完成
+  if (!state.hasMore && state.status === 'collecting') {
+    state.status = 'complete';
+    console.log(LOG, 'Collection complete:', state.collectedCount, 'comments');
+  }
+
+  try {
+    await saveComments(comments);
+  } catch (e) {
+    console.error(LOG, 'Storage save failed (possible quota exceeded):', e.message);
+    state.status = 'error';
+  }
+  await saveState(state);
+
+  console.log(LOG, `+${newCount} comments (total: ${state.collectedCount})`);
+
+  return {
+    collectedCount: state.collectedCount,
+    totalComments: state.totalComments,
+    newCount,
+  };
+}
+
+function extractParentCid(url) {
+  try {
+    const params = new URL(url, 'https://www.tiktok.com').searchParams;
+    return params.get('comment_id') || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─── 消息路由 ───
+
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  const { type, payload } = message;
+  console.log(LOG, 'Message:', type);
+
+  const handlers = {
+    'api_data_received': function () { return handleApiData(payload.url, payload.body); },
+    'start_collection': function () { return handleStartCollection(sender); },
+    'stop_collection': function () { return handleStopCollection(sender); },
+    'get_state': function () { return loadState(); },
+    'export_csv': function () { return handleExportData('csv'); },
+    'copy_all': function () { return handleExportData('text'); },
+    'collection_complete': function () { return handleCollectionComplete(); },
+  };
+
+  const handler = handlers[type];
+  if (handler) {
+    handler().then(sendResponse);
+    return true; // 异步响应
+  }
+
+  sendResponse({ error: 'Unknown message type' });
+});
+
+async function handleStartCollection(sender) {
+  const state = getDefaultState();
+  state.status = 'collecting';
+  state.startedAt = Date.now();
+
+  // 获取当前标签页 URL 后一次性保存状态
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0]) {
+    state.videoUrl = tabs[0].url;
+  }
+
+  await saveState(state);
+  await saveComments({});
+
+  // 通知内容脚本开始滚动
+  if (tabs[0]) {
+    chrome.tabs.sendMessage(tabs[0].id, { type: 'begin_scroll' }, function () {
+      if (chrome.runtime.lastError) {
+        console.warn(LOG, 'Send to content script failed:', chrome.runtime.lastError.message);
+      }
+    });
+  }
+
+  console.log(LOG, 'Collection started');
+  return { ok: true, state };
+}
+
+async function handleStopCollection(sender) {
+  const state = await loadState();
+  state.status = state.collectedCount > 0 ? 'complete' : 'idle';
+  await saveState(state);
+
+  // 通知内容脚本停止滚动
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0]) {
+    chrome.tabs.sendMessage(tabs[0].id, { type: 'stop_scroll' }, function () {
+      if (chrome.runtime.lastError) {
+        console.warn(LOG, 'Send to content script failed:', chrome.runtime.lastError.message);
+      }
+    });
+  }
+
+  console.log(LOG, 'Collection stopped, collected:', state.collectedCount);
+  return { ok: true, state };
+}
+
+async function handleCollectionComplete() {
+  const state = await loadState();
+  if (state.status === 'collecting') {
+    state.status = 'complete';
+    await saveState(state);
+  }
+  return { ok: true, state };
+}
+
+async function handleExportData(format) {
+  const comments = await loadComments();
+  const all = Object.values(comments);
+
+  // 分离顶级评论和回复
+  const topLevel = [];
+  const replyMap = {};
+  for (const c of all) {
+    if (c.isReply) {
+      const key = c.parentCid || '_orphan';
+      if (!replyMap[key]) replyMap[key] = [];
+      replyMap[key].push(c);
+    } else {
+      topLevel.push(c);
+    }
+  }
+
+  // 按时间排序
+  const byTime = function (a, b) { return a.createTime - b.createTime; };
+  topLevel.sort(byTime);
+  for (const key in replyMap) {
+    replyMap[key].sort(byTime);
+  }
+
+  // 交错插入：顶级评论后紧跟其回复
+  const sorted = [];
+  for (const top of topLevel) {
+    sorted.push(top);
+    if (replyMap[top.cid]) {
+      for (const r of replyMap[top.cid]) sorted.push(r);
+    }
+  }
+  // 追加孤立回复（父评论未采集到的情况）
+  if (replyMap._orphan) {
+    for (const r of replyMap._orphan) sorted.push(r);
+  }
+
+  return { comments: sorted, format };
+}
+
+// ─── Service Worker 重启恢复 ───
+
+chrome.runtime.onStartup.addListener(async function () {
+  console.log(LOG, 'Service Worker restarted');
+  const state = await loadState();
+  // 如果之前在采集中，标记为中断
+  if (state.status === 'collecting') {
+    state.status = state.collectedCount > 0 ? 'complete' : 'idle';
+    await saveState(state);
+    console.log(LOG, 'Previous collection interrupted, state:', state.status);
+  }
+});
+
+console.log(LOG, 'Service Worker initialized');

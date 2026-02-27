@@ -1,0 +1,16 @@
+# Claude Code temporary files
+tmpclaude-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Zip packages
+*.zip
+
+# Editor
+.vscode/
+.idea/
+
+# Node modules (if added later)
+node_modules/

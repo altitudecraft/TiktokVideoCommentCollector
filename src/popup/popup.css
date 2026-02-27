@@ -1,0 +1,328 @@
+/**
+ * TikTok Comment Exporter - Popup Styles
+ * 浅色简约主题，BEM 命名 + tce 前缀，TikTok 品牌色。
+ */
+
+:root {
+  --tce-primary: #fe2c55;
+  --tce-primary-hover: #ef1d47;
+  --tce-bg: #ffffff;
+  --tce-bg-secondary: #f8f8f8;
+  --tce-text: #161823;
+  --tce-text-secondary: #8a8b91;
+  --tce-border: #e3e3e4;
+  --tce-success: #00b894;
+  --tce-error: #fe2c55;
+  --tce-radius: 8px;
+  --tce-stop: #ff6b35;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: var(--tce-text);
+  background: var(--tce-bg);
+  width: 340px;
+}
+
+.tce-popup {
+  padding: 16px;
+}
+
+/* ─── Header ─── */
+.tce-popup__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--tce-border);
+}
+
+.tce-popup__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.tce-popup__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tce-text);
+}
+
+/* ─── Section ─── */
+.tce-popup__section {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--tce-border);
+}
+
+/* ─── Video Info ─── */
+.tce-popup__video-label {
+  font-size: 12px;
+  color: var(--tce-text-secondary);
+  margin-bottom: 4px;
+}
+
+.tce-popup__video-detail {
+  font-size: 13px;
+  color: var(--tce-text);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* ─── Progress Stats ─── */
+.tce-popup__stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tce-popup__stat {
+  font-size: 13px;
+  color: var(--tce-text);
+}
+
+.tce-popup__stat strong {
+  color: var(--tce-primary);
+  font-weight: 700;
+}
+
+.tce-popup__stat--right {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tce-text-secondary);
+}
+
+/* ─── Progress Bar ─── */
+.tce-progress {
+  height: 8px;
+  background: var(--tce-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.tce-progress__bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--tce-primary), #ff6b81);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.tce-progress__bar--complete {
+  background: linear-gradient(90deg, #00b894, #25f4ee);
+}
+
+.tce-popup__status {
+  font-size: 12px;
+  color: var(--tce-text-secondary);
+  min-height: 18px;
+  line-height: 18px;
+}
+
+/* ─── Buttons ─── */
+.tce-popup__button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--tce-radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s, transform 0.1s;
+}
+
+.tce-popup__button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.tce-popup__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tce-popup__button--primary {
+  background: var(--tce-primary);
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.tce-popup__button--primary:hover:not(:disabled) {
+  background: var(--tce-primary-hover);
+}
+
+.tce-popup__button--stop {
+  background: var(--tce-stop);
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.tce-popup__button--stop:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.tce-popup__button--secondary {
+  background: var(--tce-bg-secondary);
+  color: var(--tce-text);
+  border: 1px solid var(--tce-border);
+}
+
+.tce-popup__button--secondary:hover:not(:disabled) {
+  background: #efefef;
+}
+
+/* ─── Action Row ─── */
+.tce-popup__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tce-popup__actions .tce-popup__button {
+  flex: 1;
+}
+
+/* ─── Options ─── */
+.tce-popup__options {
+  padding: 8px 0;
+  border-top: 1px solid var(--tce-border);
+}
+
+.tce-popup__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--tce-text-secondary);
+  cursor: pointer;
+}
+
+.tce-popup__option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--tce-primary);
+}
+
+/* ─── Guide (非视频页引导) ─── */
+.tce-guide {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.tce-guide__icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.tce-guide__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tce-text);
+  margin-bottom: 16px;
+}
+
+.tce-guide__steps {
+  text-align: left;
+}
+
+.tce-guide__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--tce-text-secondary);
+}
+
+.tce-guide__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tce-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ─── Message ─── */
+.tce-popup__message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--tce-text-secondary);
+  text-align: center;
+  min-height: 18px;
+  line-height: 18px;
+}
+
+.tce-popup__message--error {
+  color: var(--tce-error);
+}
+
+.tce-popup__message--success {
+  color: var(--tce-success);
+}
+
+/* ─── Help (折叠使用说明) ─── */
+.tce-popup__help {
+  margin-top: 10px;
+  border-top: 1px solid var(--tce-border);
+  padding-top: 8px;
+}
+
+.tce-popup__help-toggle {
+  background: none;
+  border: none;
+  color: var(--tce-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s;
+}
+
+.tce-popup__help-toggle:hover {
+  color: var(--tce-text);
+}
+
+#helpIcon {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+#helpIcon.tce-popup__help-icon--open {
+  transform: rotate(90deg);
+}
+
+.tce-popup__help-content {
+  padding: 8px 0 4px;
+}
+
+.tce-popup__help-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--tce-text-secondary);
+  line-height: 1.8;
+}
+
+.tce-popup__help-list li {
+  padding-left: 4px;
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok 评论导出</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="tce-popup">
+    <!-- Header: 图标 + 标题 -->
+    <div class="tce-popup__header">
+      <img class="tce-popup__logo" src="../../icons/icon-48.png" alt="logo">
+      <h1 class="tce-popup__title">TikTok 评论导出</h1>
+    </div>
+
+    <!-- 主内容区（在视频页时显示） -->
+    <div id="mainContent">
+      <!-- 视频信息 -->
+      <div class="tce-popup__section" id="videoInfo">
+        <div class="tce-popup__video-label">当前视频</div>
+        <div class="tce-popup__video-detail" id="videoDetail">检测中...</div>
+      </div>
+
+      <!-- 进度区域 -->
+      <div class="tce-popup__section" id="progressSection">
+        <div class="tce-popup__stats">
+          <span class="tce-popup__stat">
+            已采集: <strong id="collectedCount">0</strong> / <span id="totalCount">--</span> 条
+          </span>
+          <span class="tce-popup__stat tce-popup__stat--right" id="percentText"></span>
+        </div>
+        <div class="tce-progress">
+          <div class="tce-progress__bar" id="progressBar"></div>
+        </div>
+        <div class="tce-popup__status" id="statusText"></div>
+      </div>
+
+      <!-- 主操作按钮 -->
+      <button class="tce-popup__button tce-popup__button--primary" id="btnStart">
+        开始采集评论
+      </button>
+      <button class="tce-popup__button tce-popup__button--stop" id="btnStop" style="display:none;">
+        停止采集
+      </button>
+
+      <!-- 导出按钮 -->
+      <div class="tce-popup__actions">
+        <button class="tce-popup__button tce-popup__button--secondary" id="btnExport" disabled>
+          导出 CSV
+        </button>
+        <button class="tce-popup__button tce-popup__button--secondary" id="btnCopy" disabled>
+          复制全部
+        </button>
+      </div>
+
+      <!-- 选项 -->
+      <div class="tce-popup__options">
+        <label class="tce-popup__option">
+          <input type="checkbox" id="chkReplies" checked>
+          <span>包含回复评论</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 非视频页引导（默认隐藏） -->
+    <div id="guideContent" style="display:none;">
+      <div class="tce-guide">
+        <div class="tce-guide__icon">💬</div>
+        <div class="tce-guide__title">请在 TikTok 视频页面使用</div>
+        <div class="tce-guide__steps">
+          <div class="tce-guide__step">
+            <span class="tce-guide__step-num">1</span>
+            <span>打开任意 TikTok 视频页面</span>
+          </div>
+          <div class="tce-guide__step">
+            <span class="tce-guide__step-num">2</span>
+            <span>点击本扩展图标</span>
+          </div>
+          <div class="tce-guide__step">
+            <span class="tce-guide__step-num">3</span>
+            <span>点击「开始采集评论」</span>
+          </div>
+          <div class="tce-guide__step">
+            <span class="tce-guide__step-num">4</span>
+            <span>采集完成后导出或复制</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 消息提示 -->
+    <div class="tce-popup__message" id="message"></div>
+
+    <!-- 折叠使用说明 -->
+    <div class="tce-popup__help">
+      <button class="tce-popup__help-toggle" id="btnHelp">
+        <span id="helpIcon">▶</span> 使用说明
+      </button>
+      <div class="tce-popup__help-content" id="helpContent" style="display:none;">
+        <ol class="tce-popup__help-list">
+          <li>打开 TikTok 视频页面，确保评论区可见</li>
+          <li>点击「开始采集评论」，插件会自动滚动加载评论</li>
+          <li>采集完成后，点击「导出 CSV」下载表格文件</li>
+          <li>或点击「复制全部」将评论文本复制到剪贴板</li>
+          <li>勾选「包含回复评论」可一并导出回复内容</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script src="../utils/csv-exporter.js"></script>
+  <script src="../utils/text-formatter.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
