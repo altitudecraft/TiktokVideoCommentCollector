@@ -205,6 +205,13 @@ body {
   background: #1565c0;
 }
 
+.tce-popup__sync-info {
+  font-size: 11px;
+  color: var(--tce-text-secondary);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
 /* ─── Options ─── */
 .tce-popup__options {
   padding: 8px 0;
@@ -336,4 +343,49 @@ body {
 
 .tce-popup__help-list li {
   padding-left: 4px;
+}
+
+/* ─── Settings Fields ─── */
+.tce-popup__settings {
+  padding: 8px 0 4px;
+}
+
+.tce-popup__field {
+  margin-bottom: 8px;
+}
+
+.tce-popup__field-label {
+  display: block;
+  font-size: 11px;
+  color: var(--tce-text-secondary);
+  margin-bottom: 3px;
+}
+
+.tce-popup__field-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--tce-border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--tce-text);
+  background: var(--tce-bg);
+  outline: none;
+}
+
+.tce-popup__field-input:focus {
+  border-color: #1a73e8;
+}
+
+.tce-popup__button--small {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tce-popup__button--small:hover {
+  background: #1565c0;
 }

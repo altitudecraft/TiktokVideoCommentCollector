@@ -58,6 +58,7 @@
       <button class="tce-popup__button tce-popup__button--sync" id="btnSync" disabled>
         同步到数据库
       </button>
+      <div class="tce-popup__sync-info" id="syncInfo" style="display:none;"></div>
 
       <!-- 选项 -->
       <div class="tce-popup__options">
@@ -110,6 +111,24 @@
           <li>或点击「复制全部」将评论文本复制到剪贴板</li>
           <li>勾选「包含回复评论」可一并导出回复内容</li>
         </ol>
+      </div>
+    </div>
+
+    <!-- 同步设置 -->
+    <div class="tce-popup__help">
+      <button class="tce-popup__help-toggle" id="btnSettings">
+        <span id="settingsIcon">▶</span> 同步设置
+      </button>
+      <div class="tce-popup__settings" id="settingsContent" style="display:none;">
+        <div class="tce-popup__field">
+          <label class="tce-popup__field-label">API 地址</label>
+          <input type="text" class="tce-popup__field-input" id="inputApiUrl" placeholder="http://host:port/api/comments/import">
+        </div>
+        <div class="tce-popup__field">
+          <label class="tce-popup__field-label">API Key</label>
+          <input type="password" class="tce-popup__field-input" id="inputApiKey" placeholder="API 密钥">
+        </div>
+        <button class="tce-popup__button tce-popup__button--small" id="btnSaveConfig">保存设置</button>
       </div>
     </div>
   </div>

@@ -12,8 +12,28 @@ const API_COMMENT_REPLY = '/api/comment/list/reply/';
 
 // ─── 同步到数据库配置 ───
 // 注意: 仅限内部使用。扩展代码中的 Key 不可保密，服务端应通过环境变量设置强密钥。
-const SYNC_API_URL = 'http://185.132.54.28:3011/api/comments/import';
-const SYNC_API_KEY = 'scraper_secret_key_2026';
+const DEFAULT_SYNC_API_URL = 'http://185.132.54.28:3011/api/comments/import';
+const DEFAULT_SYNC_API_KEY = 'scraper_secret_key_2026';
+const STORAGE_KEY_SYNC_CONFIG = 'tce_sync_config';
+
+async function getSyncConfig() {
+  const result = await chrome.storage.sync.get(STORAGE_KEY_SYNC_CONFIG);
+  const config = result[STORAGE_KEY_SYNC_CONFIG] || {};
+  return {
+    apiUrl: config.apiUrl || DEFAULT_SYNC_API_URL,
+    apiKey: config.apiKey || DEFAULT_SYNC_API_KEY,
+  };
+}
+
+async function saveSyncConfig(config) {
+  await chrome.storage.sync.set({
+    [STORAGE_KEY_SYNC_CONFIG]: {
+      apiUrl: config.apiUrl || DEFAULT_SYNC_API_URL,
+      apiKey: config.apiKey || DEFAULT_SYNC_API_KEY,
+    },
+  });
+  return { ok: true };
+}
 
 // ─── 状态管理 ───
 
@@ -197,6 +217,9 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     'copy_all': function () { return handleExportData('text'); },
     'collection_complete': function () { return handleCollectionComplete(); },
     'sync_to_db': function () { return handleSyncToDb(); },
+    'get_sync_history': function () { return getSyncHistory(); },
+    'get_sync_config': function () { return getSyncConfig(); },
+    'save_sync_config': function () { return saveSyncConfig(payload); },
   };
 
   const handler = handlers[type];
@@ -356,11 +379,12 @@ async function handleSyncToDb() {
   });
 
   try {
-    const response = await fetch(SYNC_API_URL, {
+    const config = await getSyncConfig();
+    const response = await fetch(config.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': SYNC_API_KEY,
+        'X-API-Key': config.apiKey,
       },
       body: JSON.stringify({ video_id: videoId, comments: mapped }),
     });
@@ -373,11 +397,33 @@ async function handleSyncToDb() {
 
     const result = await response.json();
     console.log(LOG, 'Synced to DB:', result.imported, 'comments');
+
+    // 记录同步历史
+    await saveSyncHistory(videoId, result.imported);
+
     return { ok: result.success, imported: result.imported, total: result.total };
   } catch (e) {
     console.error(LOG, 'Sync failed:', e.message);
     return { ok: false, error: 'network_error', message: e.message };
   }
+}
+
+// ─── 同步历史 ───
+
+const STORAGE_KEY_SYNC_HISTORY = 'tce_sync_history';
+const MAX_SYNC_HISTORY = 20;
+
+async function saveSyncHistory(videoId, count) {
+  const result = await chrome.storage.local.get(STORAGE_KEY_SYNC_HISTORY);
+  const history = result[STORAGE_KEY_SYNC_HISTORY] || [];
+  history.unshift({ videoId, count, time: Date.now() });
+  if (history.length > MAX_SYNC_HISTORY) history.length = MAX_SYNC_HISTORY;
+  await chrome.storage.local.set({ [STORAGE_KEY_SYNC_HISTORY]: history });
+}
+
+async function getSyncHistory() {
+  const result = await chrome.storage.local.get(STORAGE_KEY_SYNC_HISTORY);
+  return result[STORAGE_KEY_SYNC_HISTORY] || [];
 }
 
 // ─── Service Worker 重启恢复 ───

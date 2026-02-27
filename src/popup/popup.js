@@ -20,11 +20,18 @@
     btnExport: document.getElementById('btnExport'),
     btnCopy: document.getElementById('btnCopy'),
     btnSync: document.getElementById('btnSync'),
+    syncInfo: document.getElementById('syncInfo'),
     chkReplies: document.getElementById('chkReplies'),
     message: document.getElementById('message'),
     btnHelp: document.getElementById('btnHelp'),
     helpIcon: document.getElementById('helpIcon'),
     helpContent: document.getElementById('helpContent'),
+    btnSettings: document.getElementById('btnSettings'),
+    settingsIcon: document.getElementById('settingsIcon'),
+    settingsContent: document.getElementById('settingsContent'),
+    inputApiUrl: document.getElementById('inputApiUrl'),
+    inputApiKey: document.getElementById('inputApiKey'),
+    btnSaveConfig: document.getElementById('btnSaveConfig'),
   };
 
   let pollTimer = null;
@@ -32,8 +39,11 @@
 
   // ─── 初始化 ───
   async function init() {
-    // 绑定使用说明折叠
+    // 绑定使用说明和设置折叠
     dom.btnHelp.addEventListener('click', toggleHelp);
+    dom.btnSettings.addEventListener('click', toggleSettings);
+    dom.btnSaveConfig.addEventListener('click', saveConfig);
+    loadConfig();
 
     // 检查是否在 TikTok 页面
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -56,6 +66,7 @@
 
     // 获取当前状态
     await refreshState();
+    await refreshSyncInfo();
 
     // 开始轮询状态
     pollTimer = setInterval(refreshState, 1000);
@@ -243,6 +254,11 @@
   });
 
   dom.btnSync.addEventListener('click', async function () {
+    // 获取评论数量用于确认
+    const state = await sendMessage({ type: 'get_state' });
+    const count = state.collectedCount || 0;
+    if (!confirm('确认将 ' + count + ' 条评论同步到数据库？')) return;
+
     dom.btnSync.disabled = true;
     dom.btnSync.textContent = '同步中...';
     showMessage('');
@@ -250,6 +266,7 @@
       const result = await sendMessage({ type: 'sync_to_db' });
       if (result && result.ok) {
         showMessage('已写入 ' + result.imported + ' 条评论到数据库（含更新）', 'success');
+        await refreshSyncInfo();
       } else {
         const errorMessages = {
           no_comments: '没有可同步的评论',
@@ -265,6 +282,58 @@
     dom.btnSync.textContent = '同步到数据库';
     dom.btnSync.disabled = false;
   });
+
+  // ─── 同步设置 ───
+
+  function toggleSettings() {
+    const isOpen = dom.settingsContent.style.display !== 'none';
+    dom.settingsContent.style.display = isOpen ? 'none' : 'block';
+    dom.settingsIcon.classList.toggle('tce-popup__help-icon--open', !isOpen);
+  }
+
+  async function loadConfig() {
+    try {
+      const config = await sendMessage({ type: 'get_sync_config' });
+      if (config) {
+        dom.inputApiUrl.value = config.apiUrl || '';
+        dom.inputApiKey.value = config.apiKey || '';
+      }
+    } catch (e) {
+      // 静默
+    }
+  }
+
+  async function saveConfig() {
+    const apiUrl = dom.inputApiUrl.value.trim();
+    const apiKey = dom.inputApiKey.value.trim();
+    if (!apiUrl) {
+      showMessage('请输入 API 地址', 'error');
+      return;
+    }
+    try {
+      await sendMessage({ type: 'save_sync_config', payload: { apiUrl, apiKey } });
+      showMessage('设置已保存', 'success');
+    } catch (e) {
+      showMessage('保存失败: ' + e.message, 'error');
+    }
+  }
+
+  // ─── 同步历史 ───
+
+  async function refreshSyncInfo() {
+    try {
+      const history = await sendMessage({ type: 'get_sync_history' });
+      if (history && history.length > 0) {
+        const last = history[0];
+        const date = new Date(last.time);
+        const timeStr = date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        dom.syncInfo.textContent = '上次同步: ' + timeStr + ' · ' + last.count + ' 条';
+        dom.syncInfo.style.display = 'block';
+      }
+    } catch (e) {
+      // 静默失败
+    }
+  }
 
   // ─── 工具函数 ───
 

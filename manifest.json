@@ -6,7 +6,7 @@
   "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": [
     "*://*.tiktok.com/*",
-    "http://185.132.54.28:3011/*"
+    "http://*/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js"
