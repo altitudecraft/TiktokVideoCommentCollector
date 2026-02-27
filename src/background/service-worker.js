@@ -42,7 +42,8 @@ function getDefaultState() {
     status: 'idle',        // idle | collecting | complete | error
     videoId: null,
     videoUrl: null,
-    totalComments: 0,
+    totalComments: 0,       // 顶级评论总数（来自 API body.total）
+    totalRepliesExpected: 0, // 预期回复总数（累计各顶级评论的 reply_comment_total）
     collectedCount: 0,
     cursor: 0,
     hasMore: true,
@@ -146,6 +147,11 @@ async function _handleApiData(url, body) {
     if (!comments[parsed.cid]) {
       comments[parsed.cid] = parsed;
       newCount++;
+
+      // 累计新顶级评论的预期回复数（用于精确的进度显示）
+      if (!isReplyApi && !parsed.isReply && c.reply_comment_total > 0) {
+        state.totalRepliesExpected = (state.totalRepliesExpected || 0) + c.reply_comment_total;
+      }
     }
 
     // 处理内联回复

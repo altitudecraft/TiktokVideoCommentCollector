@@ -1,6 +1,6 @@
 # Popup UI 模块指南
 
-> 文件: `src/popup/popup.html`, `popup.css`, `popup.js` | 更新: 2026-02-27
+> 文件: `src/popup/popup.html`, `popup.css`, `popup.js` | 更新: 2026-02-28
 
 ## 架构
 
@@ -69,6 +69,7 @@ idle ──[点击开始]──→ collecting ──[hasMore=false]──→ com
 | `no_video_id` | 未检测到视频 ID |
 | `api_error` | 服务器返回错误 (HTTP {status}) |
 | `network_error` | 无法连接到服务器，请检查网络 |
+| `permission_needed` | 需要访问权限 → 触发 `chrome.permissions.request()` |
 
 ## 设置面板
 
@@ -97,3 +98,5 @@ idle ──[点击开始]──→ collecting ──[hasMore=false]──→ com
 | 2026-02-27 | 采集错误消息不友好 | 添加 `errorMessages` 映射表，中文化所有错误提示 |
 | 2026-02-27 | 同步成功提示误导（"写入 N 条"含更新） | 改为「已写入 N 条评论到数据库（含更新）」 |
 | 2026-02-27 | 非 TikTok 页面打开扩展无提示 | 添加引导页（guideContent）显示使用步骤 |
+| 2026-02-28 | 进度总数仅含顶级评论，回复未计入 | `total` = `totalComments + totalRepliesExpected`，反映含回复的预期总数 |
+| 2026-02-28 | 自定义 API 无权限时静默失败 | 添加 `permission_needed` 处理，Popup 端 `chrome.permissions.request()` |

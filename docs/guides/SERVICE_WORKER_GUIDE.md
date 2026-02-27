@@ -1,6 +1,6 @@
 # Service Worker 模块指南
 
-> 文件: `src/background/service-worker.js` | 更新: 2026-02-27
+> 文件: `src/background/service-worker.js` | 更新: 2026-02-28
 
 ## 架构
 
@@ -22,7 +22,7 @@ chrome.runtime.onMessage → 消息路由 handler map
 
 | 存储类型 | Key | 用途 | 生命周期 |
 |---------|-----|------|---------|
-| `session` | `tce_state` | 采集状态（status, videoId, cursor, counts） | 浏览器关闭即清除 |
+| `session` | `tce_state` | 采集状态（status, videoId, cursor, counts, totalRepliesExpected） | 浏览器关闭即清除 |
 | `session` | `tce_comments` | 评论对象（cid 为 key，O(1) 去重） | 浏览器关闭即清除 |
 | `sync` | `tce_sync_config` | API 地址和密钥（跨设备同步） | 永久，随 Chrome 账户同步 |
 | `local` | `tce_sync_history` | 同步历史记录（最近 20 条） | 永久，仅本设备 |
@@ -64,7 +64,13 @@ MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中�
 - 最多保留 20 条（FIFO）
 - Popup 显示最近一次同步信息
 
-**前提条件**: `manifest.json` 的 `host_permissions` 需包含目标 API 域名（当前使用 `http://*/*`）。
+**前提条件**: `manifest.json` 的 `host_permissions` 或 `optional_host_permissions` 需包含目标 API 域名。自定义地址需用户在 Popup 端授权（`chrome.permissions.request`）。
+
+### 进度计数
+
+**总数计算**: `totalComments`（API `body.total`，仅顶级评论） + `totalRepliesExpected`（累计各顶级评论的 `reply_comment_total`）
+
+**注意**: TikTok 主评论 API 的 `body.total` 仅包含顶级评论数。回复数需从每个顶级评论的 `reply_comment_total` 字段累加。`collectedCount` 为实际存储的去重评论总数（顶级 + 回复）。
 
 ## 已修复问题
 
@@ -75,3 +81,4 @@ MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中�
 | 2026-02-27 | storage 写入溢出无保护 | 添加 try-catch，溢出时标记 error 状态 |
 | 2026-02-27 | CSV/复制导出时回复与父评论分离 | 重写排序逻辑：父评论 → 其回复 → 下一个父评论 |
 | 2026-02-27 | hasMore=0 时过早标记 complete，回复未展开 | 移除 _handleApiData 中的完成检查，由 content script 控制 |
+| 2026-02-28 | 进度显示 totalComments 仅含顶级评论，回复未计入总数 | 新增 `totalRepliesExpected` 累计回复预期数，Popup 显示合计总数 |

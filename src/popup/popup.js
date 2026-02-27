@@ -105,7 +105,8 @@
     if (!state) return;
 
     const collected = state.collectedCount || 0;
-    const total = state.totalComments || 0;
+    // 总数 = 顶级评论数 + 预期回复数（修复：之前 total 仅包含顶级评论，导致进度永远 < 100%）
+    const total = (state.totalComments || 0) + (state.totalRepliesExpected || 0);
 
     dom.collectedCount.textContent = collected;
     dom.totalCount.textContent = total > 0 ? total : '--';
