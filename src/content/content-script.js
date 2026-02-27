@@ -11,6 +11,7 @@
   const NO_DATA_MAX = 5;
   const MAX_CONTAINER_RETRIES = 10;
   const MAX_REPLY_CLICKS_PER_CYCLE = 3;
+  const MAX_REPLY_WAIT = 3;            // repliesClicked>0 分支最多等待 3 轮后强制进入 sweep
   const SWEEP_MAX_ROUNDS = 2;
   const PANEL_WAIT_TIMEOUT = 3000;
   const PANEL_POLL_INTERVAL = 200;
@@ -22,6 +23,7 @@
   let scrollTimer = null;
   let containerRetries = 0;
   let sweepRounds = 0;
+  let replyWaitCount = 0;
 
   // ─── 注入拦截器到页面上下文 ───
   function injectInterceptor() {
@@ -54,6 +56,7 @@
       if (response && response.collectedCount !== undefined) {
         if (response.collectedCount > lastCommentCount) {
           noDataCount = 0;
+          replyWaitCount = 0;
         } else {
           noDataCount++;
         }
@@ -200,8 +203,9 @@
 
     // 停止条件：连续 NO_DATA_MAX 次无新数据
     if (noDataCount >= NO_DATA_MAX) {
-      if (repliesClicked > 0) {
-        // 仍有未点击的回复按钮，等待响应
+      if (repliesClicked > 0 && replyWaitCount < MAX_REPLY_WAIT) {
+        // 本周期点击了回复按钮，给 API 响应留缓冲时间（最多等 MAX_REPLY_WAIT 轮）
+        replyWaitCount++;
         noDataCount = NO_DATA_MAX - 2;
       } else if (sweepRounds < SWEEP_MAX_ROUNDS) {
         // 回复扫描：滚回顶部重扫未展开的回复
@@ -278,6 +282,7 @@
     lastCommentCount = 0;
     containerRetries = 0;
     sweepRounds = 0;
+    replyWaitCount = 0;
     console.log(LOG, 'Auto-scroll started');
     doScroll();
   }

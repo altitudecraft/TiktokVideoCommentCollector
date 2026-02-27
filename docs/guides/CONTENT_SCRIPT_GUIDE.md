@@ -21,7 +21,7 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 ### 滚动停止条件
 - `noDataCount >= NO_DATA_MAX(5)`：连续 5 次滚动无新数据
 - `containerRetries >= 10`：滚动容器 10 次未找到
-- 停止前检查：有未点击回复按钮时延长采集（`noDataCount = NO_DATA_MAX - 2`）
+- 停止前检查：点击了回复按钮时延长等待（`noDataCount = NO_DATA_MAX - 2`，最多 `MAX_REPLY_WAIT=3` 轮）
 - 无按钮可点时进入扫描阶段（最多 `SWEEP_MAX_ROUNDS=2` 轮）
 
 ### 回复展开
@@ -60,11 +60,12 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 | 日期 | 问题 | 修复 |
 |------|------|------|
 | 2026-02-27 | 滚动容器未找到时无限重试 | 添加 `MAX_CONTAINER_RETRIES=10` 上限 |
-| 2026-02-27 | "View replies" 按钮被重复点击 | 用 `data-tce-clicked` 标记已点击按钮 |
+| 2026-02-27 | "View replies" 按钮被重复点击 | 用 `data-tce-clicked-text` 按钮文本标记已点击按钮 |
 | 2026-02-27 | `containerRetries` 采集重启后未重置 | `startScrolling()` 中重置 |
 | 2026-02-27 | 评论面板未打开时无法采集 | 添加 `ensureCommentPanelOpen()` 自动检测并点击评论按钮 |
 | 2026-02-27 | 回复按钮选择器不匹配新版 TikTok DOM（DivViewRepliesContainer） | 更新选择器 + 添加面板内文本扫描兜底策略 |
-| 2026-02-27 | 回复加载期间 noDataCount 误判导致提前停止 | 点击回复按钮后重置 noDataCount |
+| 2026-02-27 | 回复加载期间 noDataCount 误判导致提前停止 | 改为停止前检查策略：有回复按钮时延长等待（`MAX_REPLY_WAIT=3` 轮上限） |
 | 2026-02-27 | 同时点击 5+ 回复按钮导致页面渲染阻塞、无限循环 | 添加限流 `MAX_REPLY_CLICKS_PER_CYCLE=3` + 回复扫描机制 |
 | 2026-02-27 | noDataCount 被 repliesClicked 无限重置导致永不停止 | 移除 doScroll 中的 noDataCount 重置，改为停止前检查策略 |
 | 2026-02-27 | 部分回复按钮因位于视口外被跳过 | 添加 sweep 机制，滚回顶部重新扫描（最多 2 轮） |
+| 2026-02-27 | repliesClicked>0 分支无退出条件，API 无响应时二次无限循环 | 添加 `replyWaitCount` 上限（`MAX_REPLY_WAIT=3`），收到新数据时重置 |
