@@ -201,7 +201,10 @@
     }
 
     // 点击 "View X replies" 按钮（展开回复）
-    clickViewRepliesButtons();
+    const repliesClicked = clickViewRepliesButtons();
+    if (repliesClicked > 0) {
+      noDataCount = 0; // 刚点击了回复按钮，数据即将到来，重置计数
+    }
 
     // 执行滚动
     container.scrollTop = container.scrollHeight;
@@ -210,18 +213,48 @@
   }
 
   function clickViewRepliesButtons() {
-    // 匹配 "View N replies" 或 "View N more replies" 按钮
-    const buttons = document.querySelectorAll(
-      '[class*="ReplyAction"] button, [data-e2e="view-more-replies"]'
-    );
-    for (const btn of buttons) {
-      if (btn.dataset.tceClicked) continue;
-      const text = btn.textContent || '';
-      if (/view\s+\d+\s+(more\s+)?repl/i.test(text)) {
-        btn.dataset.tceClicked = '1';
-        btn.click();
+    const replyPattern = /view\s+\d+\s+(more\s+)?repl/i;
+    let clicked = 0;
+
+    // 策略1: 匹配已知容器内的按钮（覆盖 TikTok 新旧布局）
+    const selectors = [
+      '[class*="ViewReplies"] button',   // 新版: DivViewRepliesContainer
+      '[class*="ReplyAction"] button',   // 旧版兼容
+      '[data-e2e="view-more-replies"]',  // data-e2e 兼容
+    ];
+    for (const sel of selectors) {
+      const buttons = document.querySelectorAll(sel);
+      for (const btn of buttons) {
+        if (btn.dataset.tceClicked) continue;
+        const text = (btn.textContent || '').trim();
+        if (replyPattern.test(text)) {
+          btn.dataset.tceClicked = '1';
+          btn.click();
+          clicked++;
+          console.log(LOG, 'Clicked reply button:', text);
+        }
       }
     }
+
+    // 策略2: 在评论面板内按文本模式广泛扫描（兜底）
+    if (clicked === 0) {
+      const panel = getScrollContainer();
+      if (panel) {
+        const buttons = panel.querySelectorAll('button');
+        for (const btn of buttons) {
+          if (btn.dataset.tceClicked) continue;
+          const text = (btn.textContent || '').trim();
+          if (replyPattern.test(text)) {
+            btn.dataset.tceClicked = '1';
+            btn.click();
+            clicked++;
+            console.log(LOG, 'Clicked reply button (fallback):', text);
+          }
+        }
+      }
+    }
+
+    return clicked;
   }
 
   function startScrolling() {

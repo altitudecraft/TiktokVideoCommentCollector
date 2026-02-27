@@ -170,11 +170,9 @@ async function _handleApiData(url, body) {
 
   state.collectedCount = Object.keys(comments).length;
 
-  // 检查是否完成
-  if (!state.hasMore && state.status === 'collecting') {
-    state.status = 'complete';
-    console.log(LOG, 'Collection complete:', state.collectedCount, 'comments');
-  }
+  // 注意: 不在此处设置 complete 状态。
+  // 完成判定由 content script 的 noDataCount 逻辑控制，
+  // 通过 collection_complete 消息通知，避免主列表结束但回复未展开时过早标记完成。
 
   try {
     await saveComments(comments);
