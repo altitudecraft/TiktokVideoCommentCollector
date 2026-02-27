@@ -8,8 +8,10 @@
   const EVENT_NAME = 'tce_api_data';
   const SCROLL_INTERVAL_MIN = 800;
   const SCROLL_INTERVAL_MAX = 1200;
-  const NO_DATA_MAX = 3;
+  const NO_DATA_MAX = 5;
   const MAX_CONTAINER_RETRIES = 10;
+  const MAX_REPLY_CLICKS_PER_CYCLE = 3;
+  const SWEEP_MAX_ROUNDS = 2;
   const PANEL_WAIT_TIMEOUT = 3000;
   const PANEL_POLL_INTERVAL = 200;
   const PANEL_RENDER_DELAY = 800;
@@ -19,6 +21,7 @@
   let lastCommentCount = 0;
   let scrollTimer = null;
   let containerRetries = 0;
+  let sweepRounds = 0;
 
   // ─── 注入拦截器到页面上下文 ───
   function injectInterceptor() {
@@ -192,18 +195,29 @@
     }
     containerRetries = 0;
 
-    // 检查停止条件
-    if (noDataCount >= NO_DATA_MAX) {
-      console.log(LOG, 'No new data after', NO_DATA_MAX, 'scrolls, stopping');
-      stopScrolling();
-      chrome.runtime.sendMessage({ type: 'collection_complete' });
-      return;
-    }
-
-    // 点击 "View X replies" 按钮（展开回复）
+    // 点击 "View X replies" 按钮（限流，不重置 noDataCount）
     const repliesClicked = clickViewRepliesButtons();
-    if (repliesClicked > 0) {
-      noDataCount = 0; // 刚点击了回复按钮，数据即将到来，重置计数
+
+    // 停止条件：连续 NO_DATA_MAX 次无新数据
+    if (noDataCount >= NO_DATA_MAX) {
+      if (repliesClicked > 0) {
+        // 仍有未点击的回复按钮，等待响应
+        noDataCount = NO_DATA_MAX - 2;
+      } else if (sweepRounds < SWEEP_MAX_ROUNDS) {
+        // 回复扫描：滚回顶部重扫未展开的回复
+        sweepRounds++;
+        noDataCount = 0;
+        container.scrollTop = 0;
+        console.log(LOG, 'Reply sweep round', sweepRounds, '/', SWEEP_MAX_ROUNDS);
+        scrollTimer = setTimeout(doScroll, randomDelay());
+        return;
+      } else {
+        // 扫描完毕，采集结束
+        console.log(LOG, 'Collection complete after', sweepRounds, 'sweep rounds');
+        stopScrolling();
+        chrome.runtime.sendMessage({ type: 'collection_complete' });
+        return;
+      }
     }
 
     // 执行滚动
@@ -212,9 +226,10 @@
     scrollTimer = setTimeout(doScroll, randomDelay());
   }
 
-  function clickMatchingButtons(buttons, pattern, label) {
+  function clickMatchingButtons(buttons, pattern, label, maxClicks) {
     let clicked = 0;
     for (const btn of buttons) {
+      if (clicked >= maxClicks) break;
       const text = (btn.textContent || '').trim();
       if (!pattern.test(text)) continue;
       // 用文本作为标记：同一按钮文本变化时（如 "View 6 replies" → "View 3 more"）允许重新点击
@@ -237,15 +252,19 @@
       '[data-e2e="view-more-replies"]',  // data-e2e 兼容
     ];
     let clicked = 0;
+    let budget = MAX_REPLY_CLICKS_PER_CYCLE;
     for (const sel of selectors) {
-      clicked += clickMatchingButtons(document.querySelectorAll(sel), replyPattern, '');
+      if (budget <= 0) break;
+      const n = clickMatchingButtons(document.querySelectorAll(sel), replyPattern, '', budget);
+      clicked += n;
+      budget -= n;
     }
 
     // 策略2: 在评论面板内按文本模式广泛扫描（兜底）
     if (clicked === 0) {
       const panel = getScrollContainer();
       if (panel) {
-        clicked = clickMatchingButtons(panel.querySelectorAll('button'), replyPattern, ' (fallback)');
+        clicked = clickMatchingButtons(panel.querySelectorAll('button'), replyPattern, ' (fallback)', MAX_REPLY_CLICKS_PER_CYCLE);
       }
     }
 
@@ -258,6 +277,7 @@
     noDataCount = 0;
     lastCommentCount = 0;
     containerRetries = 0;
+    sweepRounds = 0;
     console.log(LOG, 'Auto-scroll started');
     doScroll();
   }
