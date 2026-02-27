@@ -212,9 +212,23 @@
     scrollTimer = setTimeout(doScroll, randomDelay());
   }
 
+  function clickMatchingButtons(buttons, pattern, label) {
+    let clicked = 0;
+    for (const btn of buttons) {
+      const text = (btn.textContent || '').trim();
+      if (!pattern.test(text)) continue;
+      // 用文本作为标记：同一按钮文本变化时（如 "View 6 replies" → "View 3 more"）允许重新点击
+      if (btn.dataset.tceClickedText === text) continue;
+      btn.dataset.tceClickedText = text;
+      btn.click();
+      clicked++;
+      console.log(LOG, 'Clicked reply button' + label + ':', text);
+    }
+    return clicked;
+  }
+
   function clickViewRepliesButtons() {
     const replyPattern = /view\s+\d+\s+(more\s+)?repl/i;
-    let clicked = 0;
 
     // 策略1: 匹配已知容器内的按钮（覆盖 TikTok 新旧布局）
     const selectors = [
@@ -222,35 +236,16 @@
       '[class*="ReplyAction"] button',   // 旧版兼容
       '[data-e2e="view-more-replies"]',  // data-e2e 兼容
     ];
+    let clicked = 0;
     for (const sel of selectors) {
-      const buttons = document.querySelectorAll(sel);
-      for (const btn of buttons) {
-        if (btn.dataset.tceClicked) continue;
-        const text = (btn.textContent || '').trim();
-        if (replyPattern.test(text)) {
-          btn.dataset.tceClicked = '1';
-          btn.click();
-          clicked++;
-          console.log(LOG, 'Clicked reply button:', text);
-        }
-      }
+      clicked += clickMatchingButtons(document.querySelectorAll(sel), replyPattern, '');
     }
 
     // 策略2: 在评论面板内按文本模式广泛扫描（兜底）
     if (clicked === 0) {
       const panel = getScrollContainer();
       if (panel) {
-        const buttons = panel.querySelectorAll('button');
-        for (const btn of buttons) {
-          if (btn.dataset.tceClicked) continue;
-          const text = (btn.textContent || '').trim();
-          if (replyPattern.test(text)) {
-            btn.dataset.tceClicked = '1';
-            btn.click();
-            clicked++;
-            console.log(LOG, 'Clicked reply button (fallback):', text);
-          }
-        }
+        clicked = clickMatchingButtons(panel.querySelectorAll('button'), replyPattern, ' (fallback)');
       }
     }
 
