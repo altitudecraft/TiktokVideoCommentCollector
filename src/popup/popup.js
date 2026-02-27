@@ -165,8 +165,10 @@
         const errorMessages = {
           comment_button_not_found: '未找到评论按钮，请先点击视频下方的评论图标打开评论区',
           panel_not_opened: '评论区未能自动打开，请手动点击视频下方的评论图标',
+          begin_scroll_timeout: '与页面通信超时，请刷新页面后重试',
+          no_active_tab: '未找到活动标签页，请确保在 TikTok 视频页面使用',
         };
-        showMessage(errorMessages[result.error] || '启动失败: ' + result.error, 'error');
+        showMessage(errorMessages[result.error] || '评论面板打开失败，请手动点击评论图标后重试', 'error');
       } else {
         collectionStartTime = Date.now();
         await refreshState();
@@ -246,8 +248,7 @@
   function showMessage(text, type) {
     dom.message.textContent = text;
     dom.message.className = 'tce-popup__message';
-    if (type === 'error') dom.message.classList.add('tce-popup__message--error');
-    if (type === 'success') dom.message.classList.add('tce-popup__message--success');
+    if (type) dom.message.classList.add('tce-popup__message--' + type);
   }
 
   function sendMessage(msg) {

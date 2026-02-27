@@ -207,40 +207,39 @@ async function handleStartCollection(sender) {
   state.status = 'collecting';
   state.startedAt = Date.now();
 
-  // 获取当前标签页 URL 后一次性保存状态
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tabs[0]) {
-    state.videoUrl = tabs[0].url;
+  const tab = tabs[0];
+  if (!tab) {
+    return { ok: false, error: 'no_active_tab', state: getDefaultState() };
   }
+  state.videoUrl = tab.url;
 
   await saveState(state);
   await saveComments({});
 
   // 通知内容脚本开始滚动（先自动打开评论面板）
-  if (tabs[0]) {
-    try {
-      const scrollResult = await new Promise(function (resolve) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'begin_scroll' }, function (response) {
-          if (chrome.runtime.lastError) {
-            resolve({ ok: false, error: chrome.runtime.lastError.message });
-          } else {
-            resolve(response || { ok: true });
-          }
-        });
+  const scrollResult = await Promise.race([
+    new Promise(function (resolve) {
+      chrome.tabs.sendMessage(tab.id, { type: 'begin_scroll' }, function (response) {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+        } else {
+          resolve(response || { ok: true });
+        }
       });
+    }),
+    new Promise(function (resolve) {
+      setTimeout(function () {
+        resolve({ ok: false, error: 'begin_scroll_timeout' });
+      }, 5000); // 比 PANEL_WAIT_TIMEOUT(3s) 略长
+    }),
+  ]);
 
-      if (!scrollResult.ok) {
-        // 评论面板打开失败，回滚状态
-        state.status = 'idle';
-        await saveState(state);
-        console.warn(LOG, 'Collection failed to start:', scrollResult.error);
-        return { ok: false, error: scrollResult.error, state };
-      }
-    } catch (e) {
-      state.status = 'idle';
-      await saveState(state);
-      return { ok: false, error: e.message, state };
-    }
+  if (!scrollResult.ok) {
+    state.status = 'idle';
+    await saveState(state);
+    console.warn(LOG, 'Collection failed to start:', scrollResult.error);
+    return { ok: false, error: scrollResult.error, state };
   }
 
   console.log(LOG, 'Collection started');

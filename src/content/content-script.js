@@ -12,6 +12,7 @@
   const MAX_CONTAINER_RETRIES = 10;
   const PANEL_WAIT_TIMEOUT = 3000;
   const PANEL_POLL_INTERVAL = 200;
+  const PANEL_RENDER_DELAY = 800;
 
   let scrolling = false;
   let noDataCount = 0;
@@ -61,10 +62,16 @@
   // ─── 评论面板检测与自动打开 ───
 
   function isCommentPanelOpen() {
-    // 检查评论面板是否已打开
-    if (document.querySelector('[class*="DivCommentMain"]')) return true;
-    if (document.querySelector('[data-e2e="comment-list"]')) return true;
-    if (document.querySelector('[class*="CommentList"]')) return true;
+    // 检查面板元素存在且可见（offsetParent 为 null 表示不可见）
+    const selectors = [
+      '[class*="DivCommentMain"]',
+      '[data-e2e="comment-list"]',
+      '[class*="CommentList"]',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && el.offsetParent !== null) return true;
+    }
     return false;
   }
 
@@ -80,15 +87,13 @@
     const ariaBtn = document.querySelector('button[aria-label*="comment" i]');
     if (ariaBtn) return ariaBtn;
 
-    // 策略3: ButtonActionItem 类中包含评论 SVG path 的按钮
+    // 策略3: 通过 SVG path 数据匹配（最终兜底，可能因 TikTok 图标更新失效）
+    // path 特征片段来源: TikTok web 2026-02 版评论图标 viewBox="0 0 48 48"
     const actionBtns = document.querySelectorAll('[class*="ButtonActionItem"]');
     for (const btn of actionBtns) {
-      const svg = btn.querySelector('svg');
-      if (svg) {
-        const path = svg.querySelector('path');
-        if (path && path.getAttribute('d') && path.getAttribute('d').includes('21.5c0-10.22')) {
-          return btn;
-        }
+      const pathD = btn.querySelector('svg path')?.getAttribute('d');
+      if (pathD && pathD.includes('21.5c0-10.22')) {
+        return btn;
       }
     }
 
@@ -117,7 +122,7 @@
   async function ensureCommentPanelOpen() {
     if (isCommentPanelOpen()) {
       console.log(LOG, 'Comment panel already open');
-      return { ok: true };
+      return { ok: true, autoOpened: false };
     }
 
     console.log(LOG, 'Comment panel not open, searching for button...');
@@ -245,8 +250,12 @@
     if (message.type === 'begin_scroll') {
       ensureCommentPanelOpen().then(function (result) {
         if (result.ok) {
-          startScrolling();
-          sendResponse({ ok: true, autoOpened: result.autoOpened || false });
+          // 自动打开面板后延迟启动，等待评论列表渲染
+          const delay = result.autoOpened ? PANEL_RENDER_DELAY : 0;
+          setTimeout(function () {
+            startScrolling();
+            sendResponse({ ok: true, autoOpened: result.autoOpened });
+          }, delay);
         } else {
           sendResponse({ ok: false, error: result.error });
         }
@@ -258,14 +267,13 @@
       stopScrolling();
       sendResponse({ ok: true });
     } else if (message.type === 'get_page_info') {
-      // 从页面提取视频信息
       sendResponse({
         url: window.location.href,
         title: document.title,
       });
     }
-
-    return true; // 保持消息通道打开
+    // 注意：只有 begin_scroll 分支返回 true（异步响应）
+    // 其他同步分支不需要 return true
   });
 
   console.log(LOG, 'Content script loaded on:', window.location.href);

@@ -1,6 +1,6 @@
 # 内容脚本模块指南
 
-> 文件: `src/content/content-script.js`, `src/content/interceptor.js` | 更新: 2026-02-28
+> 文件: `src/content/content-script.js`, `src/content/interceptor.js` | 更新: 2026-02-27
 
 ## 架构
 
@@ -43,4 +43,4 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 | 2026-02-27 | 滚动容器未找到时无限重试 | 添加 `MAX_CONTAINER_RETRIES=10` 上限 |
 | 2026-02-27 | "View replies" 按钮被重复点击 | 用 `data-tce-clicked` 标记已点击按钮 |
 | 2026-02-27 | `containerRetries` 采集重启后未重置 | `startScrolling()` 中重置 |
-| 2026-02-28 | 评论面板未打开时无法采集 | 添加 `ensureCommentPanelOpen()` 自动检测并点击评论按钮 |
+| 2026-02-27 | 评论面板未打开时无法采集 | 添加 `ensureCommentPanelOpen()` 自动检测并点击评论按钮 |
