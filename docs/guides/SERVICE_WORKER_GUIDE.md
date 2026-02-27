@@ -7,12 +7,12 @@
 ```
 chrome.runtime.onMessage → 消息路由 handler map
   ├── api_data_received  → handleApiData()（带队列串行化）
-  ├── start_collection   → handleStartCollection()
+  ├── start_collection   → handleStartCollection()（含 CS 重注入重试）
   ├── stop_collection    → handleStopCollection()
-  ├── get_state          → loadState()
+  ├── get_state          → loadState() + syncProgress 合并
   ├── export_csv / copy_all → handleExportData()
   ├── collection_complete → handleCollectionComplete()
-  ├── sync_to_db         → handleSyncToDb()
+  ├── sync_to_db         → handleSyncToDb()（分批 200 条/批）
   ├── get_sync_history   → getSyncHistory()
   ├── get_sync_config    → getSyncConfig()
   └── save_sync_config   → saveSyncConfig()
@@ -25,6 +25,7 @@ chrome.runtime.onMessage → 消息路由 handler map
 | `session` | `tce_state` | 采集状态（status, videoId, cursor, counts, totalRepliesExpected） | 浏览器关闭即清除 |
 | `session` | `tce_comments` | 评论对象（cid 为 key，O(1) 去重） | 浏览器关闭即清除 |
 | `sync` | `tce_sync_config` | API 地址和密钥（跨设备同步） | 永久，随 Chrome 账户同步 |
+| `session` | `tce_sync_progress` | 分批同步进度（batch, totalBatches, sent, total） | 同步完成后清除 |
 | `local` | `tce_sync_history` | 同步历史记录（最近 20 条） | 永久，仅本设备 |
 
 ## 关键设计决策

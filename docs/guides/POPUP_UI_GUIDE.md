@@ -58,10 +58,20 @@ idle ──[点击开始]──→ collecting ──[collection_complete]──�
   → confirm() 确认弹窗（显示评论数量）
   → 按钮变为「同步中...」+ 禁用
   → sendMessage({ type: 'sync_to_db' })
-  → 成功: 显示写入数量 + 刷新同步历史
-  → 失败: 显示错误信息（见错误映射表）
+  → SW 分批发送（每批 200 条）
+  → Popup 轮询 get_state 读取 syncProgress → 按钮显示「同步中 1/3 批...」
+  → 全部完成: 显示写入总数 + 刷新同步历史
+  → 某批失败: 显示错误信息 + 标注失败批次
   → 恢复按钮状态
 ```
+
+### 分批同步进度
+
+SW 同步时通过 `chrome.storage.session` 的 `tce_sync_progress` 传递进度：
+```json
+{ "batch": 1, "totalBatches": 3, "sent": 200, "total": 560 }
+```
+Popup 的 `updateUI()` 检测到 `state.syncProgress` 后更新按钮文案，同步完成后 SW 清除该 key。
 
 **同步错误映射**:
 
@@ -110,3 +120,5 @@ idle ──[点击开始]──→ collecting ──[collection_complete]──�
 | 2026-02-28 | 进度总数仅含顶级评论，回复未计入 | `total` = `totalComments + totalRepliesExpected`，反映含回复的预期总数 |
 | 2026-02-28 | 自定义 API 无权限时静默失败 | 添加 `permission_needed` 处理，Popup 端 `chrome.permissions.request()` |
 | 2026-02-28 | 采集完成但进度仍显示 85% 等非 100% 值 | 完成状态强制显示 100%；`displayTotal` 取 `max(total, collected)` 防止分母小于分子 |
+| 2026-02-28 | 扩展更新后点击开始报「评论面板打开失败」 | 新增 `content_script_not_loaded` 错误码，映射为「页面脚本未加载，请刷新页面后重试」 |
+| 2026-02-28 | 同步 500+ 条评论时无进度反馈，用户以为卡死 | SW 分批同步 + Popup 轮询 `syncProgress` 显示「同步中 1/3 批...」 |

@@ -36,3 +36,4 @@
 | 并发写 storage 数据丢失 | 多个 API 响应同时触发 handler | Promise 链串行化（`processingQueue`） | SW |
 | 回复按钮选择器与 TikTok DOM 不匹配 | TikTok 频繁改版 class 名 | 多层降级选择器 + 文本扫描兜底 | Content |
 | 扩展更新后 content script 失联 | Chrome 不自动重注入已打开页面的 CS | `onInstalled` 主动注入 + 通信失败时 `executeScript` 重试 | SW, Content |
+| HTTP 413 大批量同步失败 | Express 默认 `json()` body 限制 100KB | 服务端提升 limit + 客户端分批发送（200 条/批） | SW |

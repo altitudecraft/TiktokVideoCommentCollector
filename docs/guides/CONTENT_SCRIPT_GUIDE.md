@@ -1,6 +1,6 @@
 # 内容脚本模块指南
 
-> 文件: `src/content/content-script.js`, `src/content/interceptor.js` | 更新: 2026-02-27
+> 文件: `src/content/content-script.js`, `src/content/interceptor.js` | 更新: 2026-02-28
 
 ## 架构
 
@@ -52,6 +52,9 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 
 点击后轮询等待面板出现（最多 3 秒），失败则提示用户手动操作。
 
+### 防重入保护
+`window._tceContentLoaded` 标志防止 content script 被多次初始化。当扩展更新触发 `onInstalled` 自动重注入，或 `handleStartCollection` 通信失败时通过 `chrome.scripting.executeScript` 重注入，该标志确保 IIFE 不会重复执行。
+
 ### 拦截器注入
 通过 `<script>` 标签注入到页面 MAIN world（非隔离世界），用 `data-tce-interceptor` 防重复注入。
 
@@ -69,3 +72,4 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 | 2026-02-27 | noDataCount 被 repliesClicked 无限重置导致永不停止 | 移除 doScroll 中的 noDataCount 重置，改为停止前检查策略 |
 | 2026-02-27 | 部分回复按钮因位于视口外被跳过 | 添加 sweep 机制，滚回顶部重新扫描（最多 2 轮） |
 | 2026-02-27 | repliesClicked>0 分支无退出条件，API 无响应时二次无限循环 | 添加 `replyWaitCount` 上限（`MAX_REPLY_WAIT=3`），收到新数据时重置 |
+| 2026-02-28 | 扩展更新后 content script 变「孤儿」，`chrome.runtime` 断开 | 添加 `window._tceContentLoaded` 防重入标志，配合 SW 端 `onInstalled` 自动重注入 |
