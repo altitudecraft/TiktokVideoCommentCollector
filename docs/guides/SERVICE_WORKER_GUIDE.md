@@ -74,3 +74,4 @@ MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中�
 | 2026-02-27 | 回复 API 的 replyTo 字段始终为 null | 通过 parentCid 查找父评论用户名填充 |
 | 2026-02-27 | storage 写入溢出无保护 | 添加 try-catch，溢出时标记 error 状态 |
 | 2026-02-27 | CSV/复制导出时回复与父评论分离 | 重写排序逻辑：父评论 → 其回复 → 下一个父评论 |
+| 2026-02-27 | hasMore=0 时过早标记 complete，回复未展开 | 移除 _handleApiData 中的完成检查，由 content script 控制 |

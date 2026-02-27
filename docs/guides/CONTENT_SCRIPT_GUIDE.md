@@ -23,7 +23,15 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 - `containerRetries >= 10`：滚动容器 10 次未找到
 
 ### 回复展开
-点击 "View N replies" 按钮，通过 `data-tce-clicked` 属性标记已点击按钮避免重复。
+`clickViewRepliesButtons()` 采用两层策略点击 "View N replies" / "View N more replies" 按钮：
+
+1. **已知容器选择器**（优先）:
+   - `[class*="ViewReplies"] button` — TikTok 2026-02 新版布局
+   - `[class*="ReplyAction"] button` — 旧版兼容
+   - `[data-e2e="view-more-replies"]` — data-e2e 兼容
+2. **面板内文本扫描**（兜底）: 当策略1未命中时，在滚动容器内扫描所有 `button`，按正则 `/view\s+\d+\s+(more\s+)?repl/i` 匹配
+
+通过 `data-tce-clicked` 属性标记已点击按钮避免重复。返回值 `clicked` 用于在 `doScroll()` 中重置 `noDataCount`，防止回复加载期间误触停止条件。
 
 ### 评论面板自动打开
 采集前检测评论侧面板是否已打开。若未打开，通过多层降级策略查找评论按钮并自动点击：
@@ -44,3 +52,5 @@ Background 指令 begin_scroll → content-script.js 自动滚动
 | 2026-02-27 | "View replies" 按钮被重复点击 | 用 `data-tce-clicked` 标记已点击按钮 |
 | 2026-02-27 | `containerRetries` 采集重启后未重置 | `startScrolling()` 中重置 |
 | 2026-02-27 | 评论面板未打开时无法采集 | 添加 `ensureCommentPanelOpen()` 自动检测并点击评论按钮 |
+| 2026-02-27 | 回复按钮选择器不匹配新版 TikTok DOM（DivViewRepliesContainer） | 更新选择器 + 添加面板内文本扫描兜底策略 |
+| 2026-02-27 | 回复加载期间 noDataCount 误判导致提前停止 | 点击回复按钮后重置 noDataCount |
