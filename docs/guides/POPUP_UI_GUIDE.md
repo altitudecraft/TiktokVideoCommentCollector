@@ -100,3 +100,4 @@ idle ──[点击开始]──→ collecting ──[hasMore=false]──→ com
 | 2026-02-27 | 非 TikTok 页面打开扩展无提示 | 添加引导页（guideContent）显示使用步骤 |
 | 2026-02-28 | 进度总数仅含顶级评论，回复未计入 | `total` = `totalComments + totalRepliesExpected`，反映含回复的预期总数 |
 | 2026-02-28 | 自定义 API 无权限时静默失败 | 添加 `permission_needed` 处理，Popup 端 `chrome.permissions.request()` |
+| 2026-02-28 | 采集完成但进度仍显示 85% 等非 100% 值 | 完成状态强制显示 100%；`displayTotal` 取 `max(total, collected)` 防止分母小于分子 |

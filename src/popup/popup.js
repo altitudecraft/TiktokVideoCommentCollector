@@ -105,18 +105,20 @@
     if (!state) return;
 
     const collected = state.collectedCount || 0;
-    // 总数 = 顶级评论数 + 预期回复数（修复：之前 total 仅包含顶级评论，导致进度永远 < 100%）
+    // 总数 = 顶级评论数 + 预期回复数（近似值，内联回复可能导致微小偏差）
     const total = (state.totalComments || 0) + (state.totalRepliesExpected || 0);
+    // 采集完成时，以实际采集数为准（回复估计值可能不精确）
+    const displayTotal = state.status === 'complete' ? Math.max(total, collected) : total;
 
     dom.collectedCount.textContent = collected;
-    dom.totalCount.textContent = total > 0 ? total : '--';
+    dom.totalCount.textContent = displayTotal > 0 ? displayTotal : '--';
 
-    // 进度百分比
-    const pct = total > 0
-      ? Math.min(100, Math.round((collected / total) * 100))
-      : 0;
+    // 进度百分比（完成时强制 100%）
+    const pct = state.status === 'complete'
+      ? 100
+      : (displayTotal > 0 ? Math.min(100, Math.round((collected / displayTotal) * 100)) : 0);
     dom.progressBar.style.width = pct + '%';
-    dom.percentText.textContent = total > 0 ? pct + '%' : '';
+    dom.percentText.textContent = displayTotal > 0 ? pct + '%' : '';
 
     // 状态文本和按钮
     if (state.status !== 'collecting') {

@@ -106,7 +106,7 @@ function handleApiData(url, body) {
     return _handleApiData(url, body);
   }).catch(function (e) {
     console.error(LOG, 'handleApiData error:', e.message);
-    return { collectedCount: 0, totalComments: 0, newCount: 0 };
+    return { collectedCount: 0, totalComments: 0, totalRepliesExpected: 0, newCount: 0 };
   });
   return processingQueue;
 }
@@ -148,9 +148,11 @@ async function _handleApiData(url, body) {
       comments[parsed.cid] = parsed;
       newCount++;
 
-      // 累计新顶级评论的预期回复数（用于精确的进度显示）
+      // 累计新顶级评论的预期回复数（近似估计，用于进度显示）
+      // 减去内联回复数，避免与 collectedCount 重复计数导致进度永远 < 100%
       if (!isReplyApi && !parsed.isReply && c.reply_comment_total > 0) {
-        state.totalRepliesExpected = (state.totalRepliesExpected || 0) + c.reply_comment_total;
+        const inlineCount = Array.isArray(c.reply_comment) ? c.reply_comment.length : 0;
+        state.totalRepliesExpected += Math.max(0, c.reply_comment_total - inlineCount);
       }
     }
 
