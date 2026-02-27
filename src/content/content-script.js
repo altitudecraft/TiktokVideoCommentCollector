@@ -4,6 +4,10 @@
  * 运行时机: document_start
  */
 (function () {
+  // 防重入：扩展更新后自动重注入时避免重复初始化
+  if (window._tceContentLoaded) return;
+  window._tceContentLoaded = true;
+
   const LOG = '[TCE]';
   const EVENT_NAME = 'tce_api_data';
   const SCROLL_INTERVAL_MIN = 800;

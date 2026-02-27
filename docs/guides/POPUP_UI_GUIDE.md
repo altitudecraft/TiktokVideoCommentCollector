@@ -72,6 +72,7 @@ idle ──[点击开始]──→ collecting ──[collection_complete]──�
 | `api_error` | 服务器返回错误 (HTTP {status}) |
 | `network_error` | 无法连接到服务器，请检查网络 |
 | `permission_needed` | 需要访问权限 → 触发 `chrome.permissions.request()` |
+| `content_script_not_loaded` | 页面脚本未加载，请刷新页面后重试（Ctrl+R） |
 
 ## 设置面板
 

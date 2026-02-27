@@ -38,6 +38,12 @@ chrome.runtime.onMessage → 消息路由 handler map
 ### Service Worker 生命周期
 MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中断状态。
 
+### Content Script 自动重注入
+扩展更新后，已打开的 TikTok 标签页的 content script 会变成"孤儿"（`chrome.runtime` 断开）。三层防护：
+1. **`onInstalled`**: 安装/更新时主动向所有 TikTok 标签页注入 content script
+2. **`handleStartCollection` 重试**: 通信失败且错误为 connection error 时，用 `chrome.scripting.executeScript` 重注入并重试一次
+3. **content-script.js 防重入**: `window._tceContentLoaded` 标志防止双重初始化
+
 ### 数据库同步
 
 **流程**: `handleSyncToDb()` → 字段映射 → `fetch POST` → 记录历史
@@ -86,3 +92,4 @@ MV3 Service Worker 30 秒无活动自动休眠。`onStartup` 监听器恢复中�
 | 2026-02-28 | 进度显示 totalComments 仅含顶级评论，回复未计入总数 | 新增 `totalRepliesExpected` 累计回复预期数，Popup 显示合计总数 |
 | 2026-02-28 | `totalRepliesExpected` 含内联回复导致进度 < 100% | 从 `reply_comment_total` 减去 `c.reply_comment.length`；完成时 Popup 强制 100% |
 | 2026-02-28 | 错误处理返回对象缺少 `totalRepliesExpected` 字段 | 补全 `handleApiData` catch 返回的默认字段 |
+| 2026-02-28 | 扩展更新后 content script 失联，开始采集报"面板打开失败" | 添加 `onInstalled` 自动注入 + `handleStartCollection` 重试 + 防重入 |

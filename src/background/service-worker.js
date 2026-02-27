@@ -253,28 +253,42 @@ async function handleStartCollection(sender) {
   await saveComments({});
 
   // 通知内容脚本开始滚动（先自动打开评论面板）
-  const scrollResult = await Promise.race([
-    new Promise(function (resolve) {
-      chrome.tabs.sendMessage(tab.id, { type: 'begin_scroll' }, function (response) {
-        if (chrome.runtime.lastError) {
-          resolve({ ok: false, error: chrome.runtime.lastError.message });
-        } else {
-          resolve(response || { ok: true });
-        }
-      });
-    }),
+  const SCROLL_TIMEOUT = 5000;
+  let scrollResult = await Promise.race([
+    sendBeginScroll(tab.id),
     new Promise(function (resolve) {
       setTimeout(function () {
         resolve({ ok: false, error: 'begin_scroll_timeout' });
-      }, 5000); // 比 PANEL_WAIT_TIMEOUT(3s) 略长
+      }, SCROLL_TIMEOUT);
     }),
   ]);
+
+  // 通信失败时自动重注入 content script 并重试一次
+  if (!scrollResult.ok && isConnectionError(scrollResult.error)) {
+    console.warn(LOG, 'Content script not responding, re-injecting...');
+    const injected = await injectContentScript(tab.id);
+    if (injected) {
+      await new Promise(function (r) { setTimeout(r, 500); });
+      scrollResult = await Promise.race([
+        sendBeginScroll(tab.id),
+        new Promise(function (resolve) {
+          setTimeout(function () {
+            resolve({ ok: false, error: 'begin_scroll_timeout' });
+          }, SCROLL_TIMEOUT);
+        }),
+      ]);
+    }
+  }
 
   if (!scrollResult.ok) {
     state.status = 'idle';
     await saveState(state);
+    // 将 Chrome 内部错误映射为用户友好的 key
+    const error = isConnectionError(scrollResult.error)
+      ? 'content_script_not_loaded'
+      : scrollResult.error;
     console.warn(LOG, 'Collection failed to start:', scrollResult.error);
-    return { ok: false, error: scrollResult.error, state };
+    return { ok: false, error: error, state };
   }
 
   console.log(LOG, 'Collection started');
@@ -439,6 +453,55 @@ async function getSyncHistory() {
   const result = await chrome.storage.local.get(STORAGE_KEY_SYNC_HISTORY);
   return result[STORAGE_KEY_SYNC_HISTORY] || [];
 }
+
+// ─── Content Script 注入辅助 ───
+
+function isConnectionError(error) {
+  if (!error) return false;
+  const msg = String(error).toLowerCase();
+  return msg.includes('receiving end does not exist') ||
+         msg.includes('could not establish connection') ||
+         msg.includes('message port closed');
+}
+
+async function injectContentScript(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['src/content/content-script.js'],
+    });
+    console.log(LOG, 'Content script re-injected into tab', tabId);
+    return true;
+  } catch (e) {
+    console.warn(LOG, 'Failed to inject content script:', e.message);
+    return false;
+  }
+}
+
+function sendBeginScroll(tabId) {
+  return new Promise(function (resolve) {
+    chrome.tabs.sendMessage(tabId, { type: 'begin_scroll' }, function (response) {
+      if (chrome.runtime.lastError) {
+        resolve({ ok: false, error: chrome.runtime.lastError.message });
+      } else {
+        resolve(response || { ok: true });
+      }
+    });
+  });
+}
+
+// ─── 扩展安装/更新时自动注入 Content Script ───
+
+chrome.runtime.onInstalled.addListener(async function (details) {
+  console.log(LOG, 'Extension installed/updated:', details.reason);
+  if (details.reason === 'install' || details.reason === 'update') {
+    const tabs = await chrome.tabs.query({ url: '*://*.tiktok.com/*' });
+    for (const tab of tabs) {
+      await injectContentScript(tab.id);
+    }
+    console.log(LOG, 'Re-injected content script into', tabs.length, 'TikTok tab(s)');
+  }
+});
 
 // ─── Service Worker 重启恢复 ───
 

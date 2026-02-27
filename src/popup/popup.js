@@ -185,8 +185,9 @@
           panel_not_opened: '评论区未能自动打开，请手动点击视频下方的评论图标',
           begin_scroll_timeout: '与页面通信超时，请刷新页面后重试',
           no_active_tab: '未找到活动标签页，请确保在 TikTok 视频页面使用',
+          content_script_not_loaded: '页面脚本未加载，请刷新页面后重试（Ctrl+R）',
         };
-        showMessage(errorMessages[result.error] || '评论面板打开失败，请手动点击评论图标后重试', 'error');
+        showMessage(errorMessages[result.error] || '启动失败（' + result.error + '），请刷新页面后重试', 'error');
       } else {
         collectionStartTime = Date.now();
         await refreshState();
